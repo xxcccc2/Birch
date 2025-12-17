@@ -70,22 +70,23 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/check-connection?token=${token}`);
+      // Отправляем результат напрямую, без проверки connected
+      const response = await fetch(`${API_URL}/api/game-result`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, result, promoCode: code }),
+      });
+      
       const data = await response.json();
-      if (!data.connected) {
-        // Токен есть но не привязан — сохраняем код
+      
+      // Если токен не найден — сохраняем код для отправки позже
+      if (!response.ok && data.connected === false) {
         if (result === 'win' && code) {
           setPendingPromoCode(code);
           localStorage.setItem('pending_promo_code', code);
         }
         return;
       }
-
-      await fetch(`${API_URL}/api/game-result`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, result, promoCode: code }),
-      });
       
       // Очищаем pending если отправили
       if (result === 'win') {
@@ -109,18 +110,16 @@ export default function App() {
     if (!token || !pending) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/check-connection?token=${token}`);
-      const data = await response.json();
-      if (!data.connected) return;
-
-      await fetch(`${API_URL}/api/game-result`, {
+      const response = await fetch(`${API_URL}/api/game-result`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, result: 'win', promoCode: pending }),
       });
       
-      setPendingPromoCode(null);
-      localStorage.removeItem('pending_promo_code');
+      if (response.ok) {
+        setPendingPromoCode(null);
+        localStorage.removeItem('pending_promo_code');
+      }
     } catch (error) {
       console.error('Ошибка отправки отложенного промокода:', error);
     }
